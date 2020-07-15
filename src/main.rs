@@ -53,12 +53,17 @@ fn main() -> Result<()> {
     let printer = builder.build();
     let mut stdout = io::stdout();
 
-    if opt.file.is_empty() || (opt.file.len() == 1 && opt.file[0] == PathBuf::from("-")) {
-        let stdin = io::stdin();
-        let mut stdin = stdin.lock();
-        printer.print_from_reader(&mut stdout, &mut stdin)?;
+    let files = if opt.file.is_empty() {
+        vec![PathBuf::from("-")]
     } else {
-        for file in opt.file {
+        opt.file
+    };
+    for file in files {
+        if file == PathBuf::from("-") {
+            let stdin = io::stdin();
+            let mut stdin = stdin.lock();
+            printer.print_from_reader(&mut stdout, &mut stdin)?;
+        } else {
             printer.print_file(&mut stdout, file)?;
         }
     }
