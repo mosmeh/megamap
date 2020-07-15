@@ -17,6 +17,8 @@ jobs:
           rust: stable
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - uses: hecrj/setup-rust-action@v1
       with:
         rust-version: ${{ matrix.rust }}

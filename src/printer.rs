@@ -1,15 +1,28 @@
 use anyhow::Result;
 use crossterm::style::{self, Color};
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use syntect::easy::HighlightLines;
-use syntect::highlighting::ThemeSet;
+use syntect::highlighting::{Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-static THEME: &str = "base16-ocean.dark";
+lazy_static! {
+    static ref SYNTAX_SET: SyntaxSet = SyntaxSet::load_defaults_nonewlines();
+    static ref THEME: Theme = {
+        static DEFAULT_THEME_FILE: &[u8] =
+            include_bytes!("../themes/sublime-monokai-extended/Monokai Extended.tmTheme");
+
+        let mut reader = io::Cursor::new(DEFAULT_THEME_FILE);
+        ThemeSet::load_from_reader(&mut reader).unwrap_or_else(|_| {
+            let theme_set = ThemeSet::load_defaults();
+            theme_set.themes["base16-ocean.dark"].clone()
+        })
+    };
+}
 
 pub struct PrinterBuilder {
     language: Option<String>,
@@ -36,8 +49,6 @@ impl PrinterBuilder {
 
     pub fn build(&self) -> Printer {
         Printer {
-            syntax_set: SyntaxSet::load_defaults_nonewlines(),
-            theme_set: ThemeSet::load_defaults(),
             language: self.language.clone(),
             columns: self.columns,
             tabs: self.tabs,
@@ -67,8 +78,6 @@ impl PrinterBuilder {
 }
 
 pub struct Printer {
-    syntax_set: SyntaxSet,
-    theme_set: ThemeSet,
     language: Option<String>,
     columns: usize,
     tabs: usize,
@@ -85,14 +94,13 @@ impl Printer {
         let input_reader = InputReader::new(BufReader::new(file))?;
 
         let syntax = if let Some(lang) = &self.language {
-            self.syntax_set.find_syntax_by_token(lang)
+            SYNTAX_SET.find_syntax_by_token(lang)
         } else {
-            self.syntax_set.find_syntax_for_file(path)?
+            SYNTAX_SET.find_syntax_for_file(path)?
         }
-        .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
+        .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
 
-        let theme = &self.theme_set.themes[THEME];
-        let mut highlighter = HighlightLines::new(syntax, theme);
+        let mut highlighter = HighlightLines::new(syntax, &THEME);
 
         self.print(writer, input_reader, &mut highlighter)
     }
@@ -105,15 +113,13 @@ impl Printer {
         let input_reader = InputReader::new(reader)?;
 
         let syntax = if let Some(lang) = &self.language {
-            self.syntax_set.find_syntax_by_token(lang)
+            SYNTAX_SET.find_syntax_by_token(lang)
         } else {
-            self.syntax_set
-                .find_syntax_by_first_line(input_reader.first_line())
+            SYNTAX_SET.find_syntax_by_first_line(input_reader.first_line())
         }
-        .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
+        .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
 
-        let theme = &self.theme_set.themes[THEME];
-        let mut highlighter = HighlightLines::new(syntax, theme);
+        let mut highlighter = HighlightLines::new(syntax, &THEME);
 
         self.print(writer, input_reader, &mut highlighter)
     }
@@ -153,7 +159,7 @@ impl Printer {
         line: &str,
         highlighter: &mut HighlightLines,
     ) -> Result<()> {
-        let regions = highlighter.highlight(&line, &self.syntax_set);
+        let regions = highlighter.highlight(&line, &SYNTAX_SET);
 
         let mut printed_columns = 0;
         for (style, region) in regions {

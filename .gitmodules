@@ -1,0 +1,3 @@
+[submodule "themes/sublime-monokai-extended"]
+	path = themes/sublime-monokai-extended
+	url = https://github.com/jonschlinkert/sublime-monokai-extended.git

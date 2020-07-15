@@ -12,9 +12,10 @@ Let me know if you found use cases where `megamap` is actually useful.
 
 ## Installation
 
-Clone this repository and run:
+Clone this repository and build:
 
 ```sh
+git clone --recursive https://github.com/mosmeh/megamap.git
 cargo install --path .
 ```
 
